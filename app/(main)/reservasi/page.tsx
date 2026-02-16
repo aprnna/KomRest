@@ -1,7 +1,7 @@
 "use client"
 import TopContent from '@/components/top-content'
 import React, {useState} from 'react'
-import { useDisclosure } from "@nextui-org/modal";
+import { useDisclosure } from "@heroui/react";
 import Head from '@/components/head';
 import { Button } from '@/components/Button';
 import SearchBar2 from '@/components/SearchBar2';

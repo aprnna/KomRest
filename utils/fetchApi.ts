@@ -5,8 +5,9 @@ export default async function fetchApi(
   method: string,
   body?: any,
 ) {
-  
-  const url = process.env.NEXT_PUBLIC_API_URL + path;
+  const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "/api";
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  const url = `${apiBaseUrl}${normalizedPath}`;
   const headers = {
     "Content-Type": "application/json",
   };
@@ -23,6 +24,6 @@ export default async function fetchApi(
   } catch (error:any) {
     console.log(error);
 
-    return error.response.data;
+    return error.response?.data ?? { data: null, message: "request failed", status: 500 };
   }
 }

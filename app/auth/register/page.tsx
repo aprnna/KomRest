@@ -1,7 +1,7 @@
 "use client";
-import { Input } from "@nextui-org/input";
-import { Button } from "@nextui-org/button";
-import { Select, SelectItem } from "@nextui-org/select";
+import { Input } from "@heroui/react";
+import { Button } from "@heroui/react";
+import { Select, SelectItem } from "@heroui/react";
 import fetchApi from "@/utils/fetchApi";
 import { toast } from "react-toastify";
 
@@ -33,9 +33,9 @@ export default function RegisterPage() {
       role: formData.get("role"),
     };
 
-    const { data: dataUser } = await fetchApi("/auth/register", "POST", data);
+    const response = await fetchApi("/auth/register", "POST", data);
 
-    if (dataUser.status == 400) return toast.error("GAGAL REGISTER");
+    if (response.status == 400) return toast.error("GAGAL REGISTER");
 
     return toast.success("BERHASIL REGISTER");
   }

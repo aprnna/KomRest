@@ -1,38 +1,41 @@
-'use server'
-
-import { redirect } from 'next/navigation'
-import { NextRequest } from 'next/server'
-import { createClient } from '@/utils/supabase/server'
-import getResponse from '@/utils/getResponse'
+import { hashPassword } from "@/lib/password";
+import { prisma } from "@/lib/prisma";
+import getResponse from "@/utils/getResponse";
+import { NextRequest } from "next/server";
 
 export async function POST(req: NextRequest) {
-  const supabase = createClient()
-  const {email, password,nama, umur, no_telp, role} = await req.json();
-  const { data:dataAuth, error } = await supabase.auth.signUp({
-    email: email as string,
-    password: password as string,
-  })
+  const { email, password, nama, umur, no_telp, no_hp, role } = await req.json();
 
-  if (error) {
-    console.error(error)
-
-    return getResponse(error, 'error login', 400)
+  if (!email || !nama || !role) {
+    return getResponse(null, "invalid payload", 400);
   }
 
-  const { error:errorInsert } = await supabase.from('users').upsert({
-    id: dataAuth.user?.id as string,
-    nama: nama as string,
-    umur: umur,
-    no_telp: no_telp as string,
-    role: role as string,
-    updatedAt: new Date().toISOString(),
-  })
+  try {
+    const passwordHash = await hashPassword(password || "password123");
 
-  if(errorInsert) {
-    console.error(errorInsert)
-    
-    return getResponse(errorInsert, 'error create new user', 400)
+    const dataAuth = await prisma.user.create({
+      data: {
+        email: String(email).toLowerCase(),
+        passwordHash,
+        mustResetPassword: false,
+        nama: String(nama),
+        umur: umur ? Number(umur) : null,
+        noTelp: no_telp || no_hp ? String(no_telp ?? no_hp) : null,
+        role: String(role),
+        updatedAt: new Date(),
+      },
+      select: {
+        id: true,
+        email: true,
+        nama: true,
+        role: true,
+      },
+    });
+
+    return getResponse(dataAuth, "success create new user", 200);
+  } catch (error) {
+    console.error(error);
+
+    return getResponse(error, "error create new user", 400);
   }
-
-  return getResponse(dataAuth, 'success create new user', 200)
 }

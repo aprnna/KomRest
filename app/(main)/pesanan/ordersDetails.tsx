@@ -19,7 +19,7 @@ interface Meja {
   status: string;
 }
 
-export const OrderDetails = (): JSX.Element => {
+export const OrderDetails = (): React.JSX.Element => {
   const { cart, dateTime, updateDateTime, emptyCart } = useCart();
   const [lastId, setLastID] = useState("");
 

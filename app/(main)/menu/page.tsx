@@ -4,7 +4,7 @@ import TableMenu from "./TableMenu";
 import Head from "@/components/head";
 import { Button } from "@/components/Button";
 import Modal from "@/components/modal2";
-import { useDisclosure } from "@nextui-org/modal";
+import { useDisclosure } from "@heroui/react";
 import { useState } from "react";
 import { toast } from "react-toastify";
 import FormMenu from "./formMenu";

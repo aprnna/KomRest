@@ -1,65 +1,105 @@
-import getResponse from "@/utils/getResponse";
-import { createClient } from "@/utils/supabase/server";
 import { NextRequest } from "next/server";
 
-export async function PUT(req:NextRequest,{params}:any) {
-  const supabase = createClient()
-  const { id } = params
-  const {
-    nama, jumlah, satuan
-  } = await req.json();
-  const {data:{user}, error:errorAuth} = await supabase.auth.getUser()
+import { auth } from "@/auth";
+import { prisma } from "@/lib/prisma";
+import getResponse from "@/utils/getResponse";
 
-  if (errorAuth) return getResponse(errorAuth, 'error get user', 500)
-  const { data: updateData, error }:{data:any, error:any} = await supabase.from('bahan_baku').update([{
-    nama: nama,
-    jumlah: jumlah,
-    satuan: satuan,
-  }]).eq('id',id).select()
+async function getStockId(params: any) {
+  const rawId = (await Promise.resolve(params))?.id;
+  const id = Number(rawId);
 
-  if (error) return getResponse(error,"Failed update bahan baku",400)
+  if (!Number.isInteger(id) || id <= 0) {
+    return null;
+  }
 
-  const { error:err } = await supabase.from('mengelola_bahan').insert({
-    jumlah: updateData.jumlah,
-    id_user: user?.id,
-    id_stock: id,
-    proses:'Edit'
-  }).select()
-
-  if(err) return getResponse(err,"Failed update bahan baku",400)
-
-
-
-  return getResponse(updateData, "Success Update bahan baku",200)
+  return id;
 }
 
-export async function GET(req:NextRequest,{params}:any) {
-  const supabase = createClient()
-  const {id} = params
-  const {data, error} = await supabase.from('bahan_baku').select().eq('id',id)
+export async function PUT(req: NextRequest, { params }: any) {
+  const session = await auth();
 
-  if (error) return getResponse(error,"Failed get bahan baku",400)
-    
-  return getResponse(data, "Success Get bahan baku",200)
+  if (!session?.user?.id) {
+    return getResponse(null, "error get user", 401);
+  }
+
+  const id = await getStockId(params);
+  if (id === null) {
+    return getResponse(null, "Invalid stock id", 400);
+  }
+
+  const { nama, jumlah, satuan } = await req.json();
+
+  try {
+    const updateData = await prisma.bahanBaku.update({
+      where: { id },
+      data: {
+        nama,
+        jumlah: Number(jumlah),
+        satuan,
+      },
+    });
+
+    await prisma.mengelolaBahan.create({
+      data: {
+        jumlah: updateData.jumlah,
+        idUser: session.user.id,
+        idStock: id,
+        proses: "Edit",
+      },
+    });
+
+    return getResponse(updateData, "Success Update bahan baku", 200);
+  } catch (error) {
+    return getResponse(error, "Failed update bahan baku", 400);
+  }
 }
 
-export async function DELETE(req:NextRequest,{params}:any) {
-  const supabase = createClient()
-  const {id} = params
-  const {data:{user}, error:errorAuth} = await supabase.auth.getUser()
+export async function GET(_req: NextRequest, { params }: any) {
+  const id = await getStockId(params);
+  if (id === null) {
+    return getResponse(null, "Invalid stock id", 400);
+  }
 
-  if (errorAuth) return getResponse(errorAuth, 'error get user', 500)
-  const {data, error}:{data:any, error:any} = await supabase.from('bahan_baku').update({status:'FALSE'}).eq('id',id).select().single()
+  const data = await prisma.bahanBaku.findMany({
+    where: {
+      id,
+    },
+  });
 
-  if (error) return getResponse(error,"Failed delete bahan baku",400)
-  const { error:err } = await supabase.from('mengelola_bahan').insert({
-    jumlah: data.jumlah,
-    id_user: user?.id,
-    id_stock: data.id,
-    proses:'Delete'
-  }).select()
+  return getResponse(data, "Success Get bahan baku", 200);
+}
 
-  if(err) return getResponse(err,"Failed delete bahan baku",400)
+export async function DELETE(req: NextRequest, { params }: any) {
+  const session = await auth();
 
-  return getResponse(data, "Success Delete bahan baku",200)
+  if (!session?.user?.id) {
+    return getResponse(null, "error get user", 401);
+  }
+
+  const id = await getStockId(params);
+  if (id === null) {
+    return getResponse(null, "Invalid stock id", 400);
+  }
+
+  try {
+    const data = await prisma.bahanBaku.update({
+      where: { id },
+      data: {
+        status: false,
+      },
+    });
+
+    await prisma.mengelolaBahan.create({
+      data: {
+        jumlah: data.jumlah,
+        idUser: session.user.id,
+        idStock: data.id,
+        proses: "Delete",
+      },
+    });
+
+    return getResponse(data, "Success Delete bahan baku", 200);
+  } catch (error) {
+    return getResponse(error, "Failed delete bahan baku", 400);
+  }
 }

@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { redirect } from "next/navigation";
 import fetchApi from "@/utils/fetchApi";
 import {
   BreadcrumbItem,
@@ -11,17 +10,17 @@ import {
   DropdownItem,
   DropdownMenu,
   DropdownTrigger,
-} from "@nextui-org/react";
-const TopContent = (): JSX.Element => {
+} from "@heroui/react";
+const TopContent = (): React.JSX.Element => {
   const pathname = usePathname();
   const [data, setData] = useState({ nama: "", role: "" });
   const [loading, setLoading] = useState(true);
 
   const pathTitles: { [key: string]: string } = {
     "/": "Home",
-    "/menu": "Manajemen Menu",
+    "/pesanan/add": "Manajemen Menu",
     "/pesanan": "Pesanan",
-    "/pesanan/add": "Menu",
+    "/menu": "Menu",
     "/pesanan/ongoing": "Pesanan Diproses",
     "/bahan_baku": "Bahan Baku",
     "/bahan_baku/riwayat": "Riwayat Bahan Baku",
@@ -29,12 +28,6 @@ const TopContent = (): JSX.Element => {
     "/admin/karyawan": "Kelola Karyawan",
     "/reservasi": "Reservasi"
   };
-
-  async function logout() {
-    const response = await fetchApi("/auth/logout", "POST").then(() =>
-      redirect("/auth/login")
-    );
-  }
 
   async function getUser() {
     const { data } = await fetchApi("/auth/current-user", "GET");

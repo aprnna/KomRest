@@ -5,7 +5,7 @@ import Table from "@/components/table";
 import { Loading } from "@/components/loading";
 import { toast } from "react-toastify";
 import Modal from "@/components/modal2";
-import { useDisclosure } from "@nextui-org/modal";
+import { useDisclosure } from "@heroui/react";
 import FormMenu from "./formMenu";
 
 interface EditData {
@@ -39,10 +39,11 @@ export default function TableMenu() {
     setLoading(false);
   }
 
-  const handleEdit = (id: number) => {
-    console.log("Edit item with id:", id);
+  const handleEdit = (id: string | number) => {
+    const menuId = Number(id);
+    console.log("Edit item with id:", menuId);
     // Tambahkan logika untuk mengedit item
-    const data = menu.find((item: any) => item.id === id);
+    const data = menu.find((item: any) => Number(item.id) === menuId);
 
     if (data) setEditData(data);
     modalUpdate.onOpen();
@@ -67,9 +68,10 @@ export default function TableMenu() {
     window.location.reload();
   };
 
-  const handleDelete = async (id: number) => {
-    console.log("Delete item with id:", id);
-    setIdMenu(id);
+  const handleDelete = (id: string | number) => {
+    const menuId = Number(id);
+    console.log("Delete item with id:", menuId);
+    setIdMenu(menuId);
     modal.onOpen();
   };
 

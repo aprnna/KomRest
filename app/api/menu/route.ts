@@ -1,45 +1,67 @@
-import getResponse from '@/utils/getResponse'
-import { createClient } from '@/utils/supabase/server'
-import { NextRequest } from 'next/server'
-export async function GET() {
-  const supabase = createClient()
-  const { data: menu } = await supabase.from('menu').select()
+import { NextRequest } from "next/server";
 
-  return getResponse(menu, 'Menu fetched successfully', 200)
+import { decimalToNumber } from "@/lib/decimal";
+import { prisma } from "@/lib/prisma";
+import { deleteStoredImage, uploadMenuImage } from "@/lib/storage";
+import getResponse from "@/utils/getResponse";
+
+export const runtime = "nodejs";
+
+export async function GET() {
+  const menu = await prisma.menu.findMany({
+    orderBy: {
+      id: "asc",
+    },
+  });
+
+  return getResponse(
+    menu.map((item) => ({
+      ...item,
+      harga: decimalToNumber(item.harga),
+    })),
+    "Menu fetched successfully",
+    200,
+  );
 }
 
 export async function POST(req: NextRequest) {
-  const supabase = createClient()
-  const data = await req.formData()
-  const randomId = Math.floor(Math.random() * 1000)
-  
-  if (!data.get('foto')) return getResponse(null, 'Image is required', 400)
-  const { data:dataUpload, error:errUpload } = await supabase.storage.from('menu').upload(`${data.get("nama")} ${randomId}`, data.get('foto') as File)
+  const data = await req.formData();
+  const foto = data.get("foto") as File | null;
 
-  if (errUpload) {
-    await supabase.storage.from('menu').remove([`${(dataUpload as any)?.path}`])
-    
-    return getResponse(errUpload, 'Failed to upload image', 400)
+  if (!foto || foto.size <= 0) {
+    return getResponse(null, "Image is required", 400);
   }
 
-  const { data:dataImg } = await supabase.storage.from('menu').getPublicUrl(`${dataUpload.path}`)
-  const { data: menu, error } = await supabase.from('menu').insert([{
-    nama: data.get('nama'),
-    harga: data.get('harga'),
-    kategori: data.get('kategori'),
-    foto:dataImg.publicUrl
-  }]).select()
+  let uploaded: { key: string; publicUrl: string } | null = null;
 
-  if (error) {
-    console.error('Menu Post failed', error)
-    const {error:delError} = await supabase.storage.from('menu').remove([`${dataUpload.path}`])
+  try {
+    uploaded = await uploadMenuImage(foto, String(data.get("nama") ?? "menu"));
 
-    if (delError) return getResponse(delError, 'Failed to delete image', 400)
-  
-    return getResponse(error, 'Menu Post failed', 400)
+    const menu = await prisma.menu.create({
+      data: {
+        nama: String(data.get("nama") ?? ""),
+        harga: String(data.get("harga") ?? "0"),
+        kategori: String(data.get("kategori") ?? ""),
+        foto: uploaded.publicUrl,
+        fotoKey: uploaded.key,
+      },
+    });
+
+    return getResponse(
+      {
+        ...menu,
+        harga: decimalToNumber(menu.harga),
+      },
+      "Menu Post successfully",
+      201,
+    );
+  } catch (error) {
+    if (uploaded) {
+      await deleteStoredImage(uploaded.key);
+    }
+
+    console.error("Menu Post failed", error);
+
+    return getResponse(error, "Menu Post failed", 400);
   }
-
-  return getResponse(menu, 'Menu Post successfully', 201)
 }
-
-

@@ -1,5 +1,5 @@
 "use client";
-import { extendVariants, Button as But } from "@nextui-org/react";
+import { extendVariants, Button as But } from "@heroui/react";
 
 export const Button = extendVariants(But, {
   variants: {
