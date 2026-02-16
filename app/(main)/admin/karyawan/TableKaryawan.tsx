@@ -5,11 +5,11 @@ import Table from "@/components/table";
 import { Loading } from "@/components/loading";
 import { toast } from "react-toastify";
 import Modal from "@/components/modal2";
-import { useDisclosure } from "@nextui-org/modal";
+import { useDisclosure } from "@heroui/react";
 import FormKaryawan from "./formKaryawan";
 
 interface EditData {
-  id: number;
+  id: string;
   nama: string;
   umur: number;
   no_telp: string;
@@ -21,9 +21,9 @@ export default function TableKaryawan({ querySearch }: any) {
   const [loading, setLoading] = useState(true);
   const [loadingUpdate, setLoadingUpdate] = useState(false);
   const [loadingDelete, setLoadingDelete] = useState(false);
-  const [idusers, setIdusers] = useState(0);
+  const [idusers, setIdusers] = useState("");
   const [editData, setEditData] = useState<EditData>({
-    id: 0,
+    id: "",
     nama: "",
     umur: 0,
     no_telp: "",
@@ -41,9 +41,10 @@ export default function TableKaryawan({ querySearch }: any) {
     setLoading(false);
   }
 
-  const handleEdit = async (id: number) => {
-    console.log("Edit item with id:", id);
-    const data = users.find((item: any) => item.id === id);
+  const handleEdit = (id: string | number) => {
+    const userId = String(id);
+    console.log("Edit item with id:", userId);
+    const data = users.find((item: any) => item.id === userId);
 
     if (data) setEditData(data);
     modal.onOpen();
@@ -69,9 +70,10 @@ export default function TableKaryawan({ querySearch }: any) {
     toast.success("Berhasil mengedit users baku");
     window.location.reload();
   };
-  const handleDelete = async (id: number) => {
-    console.log("Delete item with id:", id);
-    setIdusers(id);
+  const handleDelete = (id: string | number) => {
+    const userId = String(id);
+    console.log("Delete item with id:", userId);
+    setIdusers(userId);
     modal2.onOpen();
   };
   const handleDeleteSubmit = async () => {

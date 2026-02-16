@@ -1,75 +1,140 @@
-import getResponse from "@/utils/getResponse";
-import { createClient } from "@/utils/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 
+import { prisma } from "@/lib/prisma";
+import getResponse from "@/utils/getResponse";
 
-export async function GET(req:NextRequest,{params}:any) {
-    const supabase = createClient();
-    const { id } = params;
+async function getTableId(params: any) {
+  const rawId = (await Promise.resolve(params))?.id;
+  const id = Number(rawId);
 
-    const { data: meja, error: mejaError } = await supabase
-        .from('meja')
-        .select()
-        .eq('no_meja', id)
-        .single();
+  if (!Number.isInteger(id) || id <= 0) {
+    return null;
+  }
 
-    if (mejaError || !meja) {
-        return new NextResponse('Table not found', { status: 404 });
-    }
-
-    const { data: reservasi, error: reservasiError } = await supabase
-        .from('reservasi')
-        .select('* , users (nama)')
-        .eq('no_meja', meja.no_meja)
-        .eq('status', 'ontable')
-
-    if (reservasiError) {
-        return new NextResponse('Error fetching reservations', { status: 500 });
-    }
-
-    const responseData = {
-        meja,
-        reservasi: reservasi.length > 0 ? reservasi : null
-    };
-
-    console.log(responseData);
-
-    return getResponse(responseData, 'Data fetched successfully', 200);
+  return id;
 }
 
-export async function PUT(req: NextRequest, { params }: any) {
-    const supabase = createClient();
-    const { id } = params;
+export async function GET(_req: NextRequest, { params }: any) {
+  const id = await getTableId(params);
 
-    const { data: meja, error: mejaError } = await supabase
-        .from('meja')
-        .select()
-        .eq('no_meja', id)
-        .single();
+  if (id === null) {
+    return getResponse(null, "Invalid table id", 400);
+  }
 
-    if (mejaError || !meja) {
-        return new NextResponse('Table not found', { status: 404 });
-    }
+  const meja = await prisma.meja.findUnique({
+    where: {
+      noMeja: id,
+    },
+  });
 
-    const { data: reservasi, error: reservasiError } = await supabase
-        .from('reservasi')
-        .update({status: "done"})
-        .eq('no_meja', meja.no_meja)
-        .eq('status', 'ontable').select();
+  if (!meja) {
+    return new NextResponse("Table not found", { status: 404 });
+  }
 
-    if (reservasiError) {
-        return new NextResponse('Error fetching reservations', { status: 500 });
-    }
+  const reservasi = await prisma.reservasi.findMany({
+    where: {
+      noMeja: meja.noMeja,
+      status: "ontable",
+    },
+    include: {
+      user: {
+        select: {
+          nama: true,
+        },
+      },
+    },
+  });
 
-    const { error:err } = await supabase.from('meja').update({
-        status: "Available"
-      }).eq('no_meja', meja.no_meja).select()
-    
-      if (err) {
-        console.error('Meja update failed', err)
-    
-        return getResponse(err, 'error update Meja', 500)
-      }
+  const responseData = {
+    meja: {
+      no_meja: meja.noMeja,
+      kapasitas: meja.kapasitas,
+      status: meja.status,
+    },
+    reservasi:
+      reservasi.length > 0
+        ? reservasi.map((item) => ({
+            id: item.id,
+            id_user: item.idUser,
+            no_meja: item.noMeja,
+            tanggal: item.tanggal,
+            atas_nama: item.atasNama,
+            banyak_orang: item.banyakOrang,
+            no_telp: item.noTelp,
+            status: item.status,
+            users: {
+              nama: item.user?.nama,
+            },
+          }))
+        : null,
+  };
 
-    return getResponse({ meja, reservasi }, 'Table and reservations updated successfully', 200);
+  return getResponse(responseData, "Data fetched successfully", 200);
+}
+
+export async function PUT(_req: NextRequest, { params }: any) {
+  const id = await getTableId(params);
+
+  if (id === null) {
+    return getResponse(null, "Invalid table id", 400);
+  }
+
+  const meja = await prisma.meja.findUnique({
+    where: {
+      noMeja: id,
+    },
+  });
+
+  if (!meja) {
+    return new NextResponse("Table not found", { status: 404 });
+  }
+
+  const ontableReservations = await prisma.reservasi.findMany({
+    where: {
+      noMeja: meja.noMeja,
+      status: "ontable",
+    },
+  });
+
+  await prisma.reservasi.updateMany({
+    where: {
+      id: {
+        in: ontableReservations.map((item) => item.id),
+      },
+    },
+    data: {
+      status: "done",
+    },
+  });
+
+  await prisma.meja.update({
+    where: {
+      noMeja: meja.noMeja,
+    },
+    data: {
+      status: "Available",
+    },
+  });
+
+  return getResponse(
+    {
+      meja: {
+        no_meja: meja.noMeja,
+        kapasitas: meja.kapasitas,
+        status: "Available",
+      },
+      reservasi: ontableReservations.map((item) => ({
+        id: item.id,
+        id_user: item.idUser,
+        no_meja: item.noMeja,
+        tanggal: item.tanggal,
+        atas_nama: item.atasNama,
+        banyak_orang: item.banyakOrang,
+        no_telp: item.noTelp,
+        status: "done",
+      })),
+    },
+    "Table and reservations updated successfully",
+    200,
+  );
 }

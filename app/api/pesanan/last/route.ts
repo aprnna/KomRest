@@ -1,15 +1,22 @@
-import getResponse from '@/utils/getResponse'
-import { createClient } from '@/utils/supabase/server'
+import { prisma } from "@/lib/prisma";
+import getResponse from "@/utils/getResponse";
 
 export async function GET() {
-    const supabase = createClient()
-    const { data:pesanan, error} = await supabase.from('pesanan').select('id').order('id', {ascending: false}).limit(1);
+  try {
+    const pesanan = await prisma.pesanan.findMany({
+      select: {
+        id: true,
+      },
+      orderBy: {
+        id: "desc",
+      },
+      take: 1,
+    });
 
-    if (error) {
-        console.error('Failed to fetch last id', error)
-  
-        return getResponse(error, 'Failed to fetch last id', 500)
-      }
-  
-    return getResponse(pesanan, 'Pesanan fetched successfully', 200)
+    return getResponse(pesanan, "Pesanan fetched successfully", 200);
+  } catch (error) {
+    console.error("Failed to fetch last id", error);
+
+    return getResponse(error, "Failed to fetch last id", 500);
   }
+}

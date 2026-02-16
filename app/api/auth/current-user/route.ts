@@ -1,25 +1,40 @@
-'use server'
-
-import getResponse from "@/utils/getResponse"
-import { createClient } from "@/utils/supabase/server"
-import { redirect } from "next/navigation"
+import { auth } from "@/auth";
+import { prisma } from "@/lib/prisma";
+import getResponse from "@/utils/getResponse";
 
 export async function GET() {
-  const supabase = createClient()
-  const {data:{user}, error:errorAuth} = await supabase.auth.getUser()
+  const session = await auth();
 
-  if(errorAuth){
-    return getResponse(errorAuth, 'error get user', 500)
-  }
-  const { data:dataUser, error} = await supabase.from('users').select().eq('id', user?.id).single()
-
-  if (error) {
-    return getResponse(error, 'error get user', 500)
-  }
-  const data = {
-    email: user?.email,
-    ...dataUser,
+  if (!session?.user?.id) {
+    return getResponse(null, "error get user", 401);
   }
 
-  return getResponse(data, 'success get user', 200)
+  const dataUser = await prisma.user.findUnique({
+    where: {
+      id: session.user.id,
+    },
+    select: {
+      id: true,
+      nama: true,
+      umur: true,
+      role: true,
+      noTelp: true,
+      createdAt: true,
+      updatedAt: true,
+      email: true,
+    },
+  });
+
+  if (!dataUser) {
+    return getResponse(null, "error get user", 404);
+  }
+
+  return getResponse(
+    {
+      ...dataUser,
+      no_telp: dataUser.noTelp,
+    },
+    "success get user",
+    200,
+  );
 }

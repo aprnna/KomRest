@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { Input } from "@nextui-org/input";
-import { Select, SelectItem } from "@nextui-org/select";
+import { Input } from "@heroui/react";
+import { Select, SelectItem } from "@heroui/react";
 export default function FormBahan({ initialData }: { initialData?: any }) {
   let { nama, jumlah, satuan } = initialData || {};
   const [data, setData] = useState({

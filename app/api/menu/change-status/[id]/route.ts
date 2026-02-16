@@ -1,19 +1,31 @@
-import getResponse from "@/utils/getResponse";
-import { createClient } from "@/utils/supabase/server";
 import { NextRequest } from "next/server";
 
-export async function PUT(req:NextRequest,{params}:any) {
-  const supabase = createClient()
-  const { id } = params
-    
-  const { data, error } = await supabase.from("menu").select('tersedia').eq('id',id).single()
-  
-  if (error) return getResponse(error,"Failed get menu",400)
-  const { data:updateData, error:updateError } = await supabase.from("menu").update({
-    tersedia:!data.tersedia,
-  }).eq('id',id).select()
+import { prisma } from "@/lib/prisma";
+import getResponse from "@/utils/getResponse";
 
-  if (updateError) return getResponse(error,"Failed update menu",400)
+export async function PUT(req: NextRequest, { params }: any) {
+  const rawId = (await Promise.resolve(params))?.id;
+  if (typeof rawId !== "string" || !/^\d+$/.test(rawId)) {
+    return getResponse(null, "Invalid menu id", 400);
+  }
 
-  return getResponse(updateData, "Success Update Menu",200)
+  const id = BigInt(rawId);
+
+  const data = await prisma.menu.findUnique({
+    where: { id },
+    select: { tersedia: true },
+  });
+
+  if (!data) {
+    return getResponse(null, "Failed get menu", 404);
+  }
+
+  const updateData = await prisma.menu.update({
+    where: { id },
+    data: {
+      tersedia: !data.tersedia,
+    },
+  });
+
+  return getResponse(updateData, "Success Update Menu", 200);
 }

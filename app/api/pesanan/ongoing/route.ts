@@ -1,26 +1,35 @@
-import getResponse from '@/utils/getResponse'
-import { createClient } from '@/utils/supabase/server'
+import { prisma } from "@/lib/prisma";
+import getResponse from "@/utils/getResponse";
+import { decimalToNumber } from "@/lib/decimal";
 
 export async function GET() {
-  const supabase = createClient()
-  
   try {
-    // Mengambil pesanan dengan status ongoing
-    const { data: pesananOngoing, error } = await supabase
-      .from('pesanan')
-      .select('*')
-      .eq('status', 'ongoing')
+    const pesananOngoing = await prisma.pesanan.findMany({
+      where: {
+        status: "ongoing",
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
 
-    if (error) {
-      console.error('Failed to fetch ongoing orders', error)
-
-      return getResponse(error, 'Failed to fetch ongoing orders', 500)
-    }
-
-    return getResponse(pesananOngoing, 'Ongoing orders fetched successfully', 200)
+    return getResponse(
+      pesananOngoing.map((item) => ({
+        id: item.id,
+        id_user: item.idUser,
+        no_meja: item.noMeja,
+        createdAt: item.createdAt,
+        updateAt: item.updateAt,
+        total_harga: decimalToNumber(item.totalHarga),
+        status: item.status,
+        id_reservasi: item.idReservasi,
+      })),
+      "Ongoing orders fetched successfully",
+      200,
+    );
   } catch (error) {
-    console.error('Internal server error', error)
+    console.error("Failed to fetch ongoing orders", error);
 
-    return getResponse(error, 'Internal server error', 500)
+    return getResponse(error, "Failed to fetch ongoing orders", 500);
   }
 }

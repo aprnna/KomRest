@@ -1,22 +1,23 @@
-import { createClient } from '@/utils/supabase/server'
-import { revalidatePath } from 'next/cache'
-import { type NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
 
 export async function POST(req: NextRequest) {
-  const supabase = createClient()
+  const cookieStore = await cookies();
+  const authCookieNames = [
+    "authjs.session-token",
+    "__Secure-authjs.session-token",
+    "next-auth.session-token",
+    "__Secure-next-auth.session-token",
+  ];
 
-  // Check if a user's logged in
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (user) {
-    await supabase.auth.signOut()
+  for (const cookieName of authCookieNames) {
+    cookieStore.set(cookieName, "", {
+      path: "/",
+      expires: new Date(0),
+    });
   }
 
-  revalidatePath('/', 'layout')
-  
-  return NextResponse.redirect(new URL('/auth/login', req.url), {
+  return NextResponse.redirect(new URL("/auth/login", req.url), {
     status: 302,
-  })
+  });
 }

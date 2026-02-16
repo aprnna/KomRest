@@ -3,7 +3,7 @@
 import Table from "@/components/table";
 import React, { useEffect, useState } from "react";
 import Modal from "@/components/modal2";
-import { useDisclosure } from "@nextui-org/modal";
+import { useDisclosure } from "@heroui/react";
 import FormReservasi from "./formReservasi";
 import fetchApi from "@/utils/fetchApi";
 import { toast } from "react-toastify";
@@ -49,13 +49,14 @@ export default function TableWaiting({ querySearch }: any) {
     setLoading(false);
   };
 
-  const handleEdit = async (id: number) => {
-    console.log("Edit item with id:", id);
-    const dataEdit = data.find((item: any) => item.id === id);
+  const handleEdit = (id: string | number) => {
+    const reservasiId = Number(id);
+    console.log("Edit item with id:", reservasiId);
+    const dataEdit = data.find((item: any) => Number(item.id) === reservasiId);
 
     if (dataEdit) {
       const mappedData = {
-        id: id,
+        id: reservasiId,
         atasNama: dataEdit.atas_nama,
         jumlah: dataEdit.banyak_orang.toString(),
         noHp: dataEdit.no_telp,
@@ -68,9 +69,10 @@ export default function TableWaiting({ querySearch }: any) {
     modal.onOpen();
   };
 
-  const handleDelete = async (id: number) => {
-    console.log("Delete item with id:", id);
-    setIdWaiting(id);
+  const handleDelete = (id: string | number) => {
+    const reservasiId = Number(id);
+    console.log("Delete item with id:", reservasiId);
+    setIdWaiting(reservasiId);
     modal2.onOpen();
   };
 

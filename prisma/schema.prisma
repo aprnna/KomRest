@@ -1,0 +1,118 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                String           @id @default(uuid()) @db.Uuid
+  createdAt         DateTime         @default(now()) @map("createdAt") @db.Timestamptz(6)
+  umur              Int?
+  role              String?
+  noTelp            String?          @map("no_telp")
+  nama              String?
+  updatedAt         DateTime?        @map("updatedAt") @db.Timestamptz(6)
+  email             String?          @unique
+  passwordHash      String           @map("password_hash")
+  mustResetPassword Boolean          @default(false) @map("must_reset_password")
+  reservations      Reservasi[]
+  orders            Pesanan[]
+  stockActions      MengelolaBahan[]
+
+  @@map("users")
+}
+
+model BahanBaku {
+  id        Int              @id @default(autoincrement())
+  nama      String           @db.VarChar(255)
+  jumlah    Int
+  satuan    String?          @db.VarChar(50)
+  status    Boolean?         @default(true)
+  createdAt DateTime?        @default(now()) @map("createdAt") @db.Timestamptz(6)
+  riwayat   MengelolaBahan[]
+
+  @@map("bahan_baku")
+}
+
+model ItemPesanan {
+  id        Int      @id @default(autoincrement())
+  idMenu    BigInt?  @map("id_menu")
+  idPesanan Int?     @map("id_pesanan")
+  jumlah    Int?
+  menu      Menu?    @relation(fields: [idMenu], references: [id])
+  pesanan   Pesanan? @relation(fields: [idPesanan], references: [id])
+
+  @@map("item_pesanan")
+}
+
+model Meja {
+  noMeja    Int        @id @default(autoincrement()) @map("no_meja")
+  kapasitas Int?
+  status    String?    @db.VarChar(50)
+  pesanan   Pesanan[]
+  reservasi Reservasi[]
+
+  @@map("meja")
+}
+
+model MengelolaBahan {
+  id        Int        @id @default(autoincrement())
+  idStock   Int?       @map("id_stock")
+  proses    String?    @db.VarChar(255)
+  jumlah    Int?
+  createdAt DateTime?  @default(now()) @map("createdAt") @db.Timestamptz(6)
+  idUser    String?    @map("id_user") @db.Uuid
+  stock     BahanBaku? @relation(fields: [idStock], references: [id])
+  user      User?      @relation(fields: [idUser], references: [id])
+
+  @@map("mengelola_bahan")
+}
+
+model Menu {
+  id         BigInt        @id @default(autoincrement())
+  createdAt  DateTime      @default(now()) @map("createdAt") @db.Timestamptz(6)
+  nama       String
+  harga      Decimal       @db.Decimal(65, 30)
+  tersedia   Boolean       @default(false)
+  foto       String?
+  fotoKey    String?       @map("foto_key")
+  kategori   String
+  itemPesanan ItemPesanan[]
+
+  @@map("menu")
+}
+
+model Pesanan {
+  id         Int           @id @default(autoincrement())
+  idUser     String?       @map("id_user") @db.Uuid
+  noMeja     Int?          @map("no_meja")
+  createdAt  DateTime      @default(now()) @map("createdAt") @db.Timestamptz(6)
+  updateAt   DateTime?     @default(now()) @map("updateAt") @db.Timestamptz(6)
+  totalHarga Decimal?      @map("total_harga") @db.Decimal(65, 30)
+  status     String?
+  idReservasi Int?         @map("id_reservasi")
+  user       User?         @relation(fields: [idUser], references: [id])
+  meja       Meja?         @relation(fields: [noMeja], references: [noMeja])
+  reservasi  Reservasi?    @relation(fields: [idReservasi], references: [id])
+  items      ItemPesanan[]
+
+  @@map("pesanan")
+}
+
+model Reservasi {
+  id         Int       @id @default(autoincrement())
+  idUser     String?   @map("id_user") @db.Uuid
+  noMeja     Int?      @map("no_meja")
+  tanggal    DateTime? @default(now()) @db.Timestamptz(6)
+  atasNama   String?   @map("atas_nama")
+  banyakOrang Int?     @map("banyak_orang")
+  noTelp     String?   @map("no_telp")
+  status     String?
+  user       User?     @relation(fields: [idUser], references: [id])
+  meja       Meja?     @relation(fields: [noMeja], references: [noMeja])
+  pesanan    Pesanan[]
+
+  @@map("reservasi")
+}

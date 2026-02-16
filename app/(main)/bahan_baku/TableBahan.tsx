@@ -6,7 +6,7 @@ import { Loading } from "@/components/loading";
 import { toast } from "react-toastify";
 import Modal from "@/components/modal2";
 import FormBahan from "./formBahan";
-import { useDisclosure } from "@nextui-org/modal";
+import { useDisclosure } from "@heroui/react";
 
 interface EditData {
   id: number;
@@ -39,9 +39,10 @@ export default function TableBahan({ querySearch }: any) {
     setLoading(false);
   }
 
-  const handleEdit = async (id: number) => {
-    console.log("Edit item with id:", id);
-    const data = bahan.find((item: any) => item.id === id);
+  const handleEdit = (id: string | number) => {
+    const bahanId = Number(id);
+    console.log("Edit item with id:", bahanId);
+    const data = bahan.find((item: any) => Number(item.id) === bahanId);
 
     if (data) setEditData(data);
     modal.onOpen();
@@ -63,9 +64,10 @@ export default function TableBahan({ querySearch }: any) {
     setLoadingUpdate(false);
     window.location.reload();
   };
-  const handleDelete = async (id: number) => {
-    console.log("Delete item with id:", id);
-    setIdBahan(id);
+  const handleDelete = (id: string | number) => {
+    const bahanId = Number(id);
+    console.log("Delete item with id:", bahanId);
+    setIdBahan(bahanId);
     modal2.onOpen();
   };
   const handleDeleteSubmit = async () => {

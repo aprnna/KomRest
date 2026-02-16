@@ -13,8 +13,8 @@ interface Column {
 interface TableProps {
   columns: Column[];
   data: any[];
-  onEdit?: (id: number) => void;
-  onDelete?: (id: number) => void;
+  onEdit?: (id: string | number) => void;
+  onDelete?: (id: string | number) => void;
 }
 
 function formatID(id: number): string {

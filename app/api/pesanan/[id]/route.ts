@@ -1,51 +1,117 @@
-import getResponse from "@/utils/getResponse";
-import { createClient } from "@/utils/supabase/server";
 import { NextRequest } from "next/server";
 
+import { decimalToNumber } from "@/lib/decimal";
+import { prisma } from "@/lib/prisma";
+import getResponse from "@/utils/getResponse";
 
-export async function GET(req:NextRequest,{params}:any) {
-    const supabase = createClient();
-    const {id} = params
-    const {data:orderData, error: orderError} = await supabase.from('pesanan').select('id, id_user, createdAt, reservasi (atas_nama, banyak_orang)').eq('id',id)
-    const {data:items, error: itemsError} = await supabase.from('item_pesanan').select().eq('id_pesanan',id)
-    const menuIds = items!.map(item => item.id_menu);
-    const {data:menuDetails, error: menuError} = await supabase.from('menu').select().in('id',menuIds)
-    
+async function getOrderId(params: any) {
+  const rawId = (await Promise.resolve(params))?.id;
+  const id = Number(rawId);
 
-    
-    
-    if (orderError) return getResponse(orderError,"Failed get order",400)
-      
-    const order =orderData.map((item:any) => ({
-        id: item.id,
-        id_user: item.id_user,
-        createdAt: item.createdAt,
-        atas_nama: item.reservasi.atas_nama,
-        banyak_orang: item.reservasi.banyak_orang,
-    }));
-      
-    
-    if (itemsError) return getResponse(itemsError,"Failed get items",400)
-    if (menuError) return getResponse(menuError,`Failed get menu ${menuIds}`,400)
-
-      
-    return getResponse({order, items, menuDetails}, "Success Get pesanan",200)
+  if (!Number.isInteger(id) || id <= 0) {
+    return null;
   }
 
-  export async function PATCH(req: NextRequest, { params }: any) {
-    const supabase = createClient();
-    const { id } = params;
-    
-    const { status} = await req.json();
+  return id;
+}
 
-    const { data: updatedOrder, error: updateError } = await supabase
-        .from('pesanan')
-        .update({ status, updateAt: new Date().toISOString() })
-        .eq('id', id);
+export async function GET(_req: NextRequest, { params }: any) {
+  const id = await getOrderId(params);
 
-    console.log(updatedOrder, updateError);
+  if (id === null) {
+    return getResponse(null, "Invalid order id", 400);
+  }
 
-    if (updateError) return getResponse(updateError, "Failed to update order", 400);
+  try {
+    const orderData = await prisma.pesanan.findMany({
+      where: {
+        id,
+      },
+      select: {
+        id: true,
+        idUser: true,
+        createdAt: true,
+        reservasi: {
+          select: {
+            atasNama: true,
+            banyakOrang: true,
+          },
+        },
+      },
+    });
+
+    const items = await prisma.itemPesanan.findMany({
+      where: {
+        idPesanan: id,
+      },
+    });
+
+    const menuIds = items
+      .map((item) => item.idMenu)
+      .filter((menuId): menuId is bigint => menuId !== null);
+
+    const menuDetails =
+      menuIds.length > 0
+        ? await prisma.menu.findMany({
+            where: {
+              id: {
+                in: menuIds,
+              },
+            },
+          })
+        : [];
+
+    const order = orderData.map((item) => ({
+      id: item.id,
+      id_user: item.idUser,
+      createdAt: item.createdAt,
+      atas_nama: item.reservasi?.atasNama,
+      banyak_orang: item.reservasi?.banyakOrang,
+    }));
+
+    return getResponse(
+      {
+        order,
+        items: items.map((item) => ({
+          id: item.id,
+          id_menu: item.idMenu,
+          id_pesanan: item.idPesanan,
+          jumlah: item.jumlah,
+        })),
+        menuDetails: menuDetails.map((menu) => ({
+          ...menu,
+          harga: decimalToNumber(menu.harga),
+        })),
+      },
+      "Success Get pesanan",
+      200,
+    );
+  } catch (error) {
+    return getResponse(error, "Failed get order", 400);
+  }
+}
+
+export async function PATCH(req: NextRequest, { params }: any) {
+  const id = await getOrderId(params);
+  if (id === null) {
+    return getResponse(null, "Invalid order id", 400);
+  }
+
+  const { status } = await req.json();
+
+  try {
+    const updatedOrder = await prisma.pesanan.update({
+      where: {
+        id,
+      },
+      data: {
+        status,
+        updateAt: new Date(),
+      },
+    });
 
     return getResponse(updatedOrder, "Successfully updated pesanan", 200);
+  } catch (error) {
+    return getResponse(error, "Failed to update order", 400);
+  }
 }

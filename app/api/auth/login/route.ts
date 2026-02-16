@@ -1,46 +1,41 @@
-'use server'
+import { NextRequest, NextResponse } from "next/server";
 
-import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/utils/supabase/server'
-import getResponse from '@/utils/getResponse'
+import { signIn } from "@/auth";
+import { prisma } from "@/lib/prisma";
+import { getRedirectForRole } from "@/lib/role";
+import getResponse from "@/utils/getResponse";
 
 export async function POST(req: NextRequest) {
-  const supabase = createClient()
-  const data = await req.formData();
-  const { data:dataAuth, error } = await supabase.auth.signInWithPassword({
-    email: data.get('email') as string,
-    password: data.get('password') as string,
-  })  
+  const formData = await req.formData();
+  const email = String(formData.get("email") ?? "")
+    .toLowerCase()
+    .trim();
+  const password = String(formData.get("password") ?? "");
 
-  if (error) {
-    console.error(error)
-
-    return getResponse(error, 'error login', 400)
-  }
-  const {data:dataUser, error:errorDataUser} = await supabase.from('users').select().eq('id', dataAuth.user.id).single()
-  
-  if (errorDataUser) {
-    console.error(errorDataUser)
-
-    return getResponse(errorDataUser, 'error login', 400)
+  if (!email || !password) {
+    return getResponse(null, "email and password are required", 400);
   }
 
-  let redirectTo = '/error'; // Default redirect URL
+  try {
+    const result = await signIn("credentials", {
+      email,
+      password,
+      redirect: false,
+    });
 
-  switch (dataUser.role) {
-    case 'manager':
-      redirectTo = '/admin';
-      break;
-    case 'pelayan':
-      redirectTo = '/reservasi';
-      break;
-    case 'koki':
-      redirectTo = '/pesanan/ongoing';
-      break;
-    case 'karyawan':
-      redirectTo = '/bahan_baku';
-      break;
+    if ((result as any)?.error) {
+      return getResponse((result as any).error, "error login", 400);
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: { role: true },
+    });
+
+    return NextResponse.redirect(new URL(getRedirectForRole(user?.role), req.url));
+  } catch (error) {
+    console.error(error);
+
+    return getResponse(error, "error login", 400);
   }
-
-  return NextResponse.redirect(new URL(redirectTo, req.url))
 }

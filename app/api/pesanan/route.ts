@@ -1,80 +1,87 @@
-import getResponse from '@/utils/getResponse'
-import { createClient } from '@/utils/supabase/server'
-import { Anybody } from 'next/font/google'
-import { NextRequest} from 'next/server'
+import { NextRequest } from "next/server";
+
+import { auth } from "@/auth";
+import { decimalToNumber } from "@/lib/decimal";
+import { prisma } from "@/lib/prisma";
+import getResponse from "@/utils/getResponse";
 
 export async function GET() {
-  const supabase = createClient();
-  
-  const { data: pesananData, error } = await supabase
-    .from('pesanan')
-    .select(`
-      id, 
-      no_meja, 
-      createdAt, 
-      total_harga, 
-      status, 
-      id_reservasi,
-      reservasi(atas_nama, banyak_orang)
-    `)
-    
-  if (error) {
-    return getResponse(null, 'Error fetching pesanan', 500);
-  }
+  try {
+    const pesananData = await prisma.pesanan.findMany({
+      select: {
+        id: true,
+        noMeja: true,
+        createdAt: true,
+        totalHarga: true,
+        status: true,
+        idReservasi: true,
+        reservasi: {
+          select: {
+            atasNama: true,
+            banyakOrang: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
 
-  const pesanan = pesananData.map((item:any) => ({
-    id: item.id,
-    no_meja: item.no_meja,
-    createdAt: item.createdAt,
-    total_harga: item.total_harga,
-    status: item.status,
-    id_reservasi: item.id_reservasi,
-    atas_nama: item.reservasi.atas_nama,
-    banyak_orang: item.reservasi.banyak_orang,
-  }));
-  
-  return getResponse(pesanan, 'Pesanan fetched successfully', 200);
+    const pesanan = pesananData.map((item) => ({
+      id: item.id,
+      no_meja: item.noMeja,
+      createdAt: item.createdAt,
+      total_harga: decimalToNumber(item.totalHarga),
+      status: item.status,
+      id_reservasi: item.idReservasi,
+      atas_nama: item.reservasi?.atasNama,
+      banyak_orang: item.reservasi?.banyakOrang,
+    }));
+
+    return getResponse(pesanan, "Pesanan fetched successfully", 200);
+  } catch {
+    return getResponse(null, "Error fetching pesanan", 500);
+  }
 }
 
 export async function POST(req: NextRequest) {
-    const supabase = createClient()
-    const {data:{user}, error:errorAuth} = await supabase.auth.getUser()
+  const session = await auth();
 
-    if(errorAuth) return getResponse(errorAuth,"failed to get user data", 400)
-    const {idReservasi, atasNama, banyak_orang,no_meja, status, total_harga, id_users, items} = await req.json();
-    // const data = await req.formData()
-    const { data: pesananBaru,error} = await supabase.from('pesanan').insert
-    ([{
-        no_meja: no_meja,
-        status: status,
-        total_harga: total_harga,
-        id_user: user?.id,
-        id_reservasi: idReservasi,
-    }]).select()
+  if (!session?.user?.id) {
+    return getResponse(null, "failed to get user data", 401);
+  }
 
-    if (error) {
-      console.error('Pesanan Post failed', error)
-      getResponse(error, 'Pesanan Post failed', 400)
-    }
+  const { idReservasi, no_meja, status, total_harga, items } = await req.json();
 
-    if (pesananBaru) {
-      const id_pesanan = pesananBaru[0].id;
-      
-      for (const item of items) {
-          const { id_menu, jumlah } = item;
-          const { data: itemPesanan, error: itemPesananError } = await supabase.from('item_pesanan').insert({
-              id_pesanan,
-              id_menu,
-              jumlah,
-          }).select();
+  try {
+    const pesananBaru = await prisma.$transaction(async (tx) => {
+      const order = await tx.pesanan.create({
+        data: {
+          noMeja: no_meja ? Number(no_meja) : null,
+          status,
+          totalHarga: String(total_harga ?? 0),
+          idUser: session.user.id,
+          idReservasi: idReservasi ? Number(idReservasi) : null,
+        },
+      });
 
-          if (itemPesananError) {
-              console.error('Item Pesanan Post failed', itemPesananError);
-
-              return getResponse(itemPesananError, 'Item Pesanan Post failed', 400);
-          }
+      for (const item of items ?? []) {
+        await tx.itemPesanan.create({
+          data: {
+            idPesanan: order.id,
+            idMenu: BigInt(item.id_menu),
+            jumlah: Number(item.jumlah),
+          },
+        });
       }
-      
-      return getResponse(pesananBaru, 'Pesanan created successfully', 200);
+
+      return order;
+    });
+
+    return getResponse(pesananBaru, "Pesanan created successfully", 200);
+  } catch (error) {
+    console.error("Pesanan Post failed", error);
+
+    return getResponse(error, "Pesanan Post failed", 400);
   }
 }

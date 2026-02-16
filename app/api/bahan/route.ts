@@ -1,48 +1,53 @@
-import getResponse from '@/utils/getResponse'
-import { createClient } from '@/utils/supabase/server'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from "next/server";
+
+import { auth } from "@/auth";
+import { prisma } from "@/lib/prisma";
+import getResponse from "@/utils/getResponse";
 
 export async function GET() {
-  const supabase = createClient()
-  const { data: menu } = await supabase.from('bahan_baku').select().eq('status', 'TRUE')
+  const menu = await prisma.bahanBaku.findMany({
+    where: {
+      status: true,
+    },
+    orderBy: {
+      id: "asc",
+    },
+  });
 
-  return getResponse(menu, 'Bahan Baku fetched successfully', 200)
+  return getResponse(menu, "Bahan Baku fetched successfully", 200);
 }
 
 export async function POST(req: NextRequest) {
-  const supabase = createClient()
-  const {
-    nama, jumlah, satuan
-  } = await req.json();
-  const {data:{user}, error:errorAuth} = await supabase.auth.getUser()
+  const session = await auth();
 
-  if (errorAuth) return getResponse(errorAuth, 'error get user', 500)
-
-  const { data: bahan_baku, error } = await supabase.from('bahan_baku').insert({
-    nama: nama,
-    jumlah: jumlah,
-    satuan: satuan,
-  }).select().single()
-  
-  if (error) {
-    console.error('Bahan insert failed', error)
-    
-    return getResponse(error, 'Bahan insert failed', 400)
-  }
-  const { error:err } = await supabase.from('mengelola_bahan').insert({
-    jumlah: jumlah,
-    id_user: user?.id,
-    id_stock: bahan_baku?.id,
-    proses:'Create'
-  }).select()
-
-  if (err) {
-    console.error('Bahan insert failed', err)
-
-    return getResponse(err, 'error insert mengelola bahan', 500)
+  if (!session?.user?.id) {
+    return getResponse(null, "error get user", 401);
   }
 
-  return getResponse(bahan_baku, 'Bahan insert successfully', 201)
+  const { nama, jumlah, satuan } = await req.json();
+
+  try {
+    const bahanBaku = await prisma.bahanBaku.create({
+      data: {
+        nama,
+        jumlah: Number(jumlah),
+        satuan,
+      },
+    });
+
+    await prisma.mengelolaBahan.create({
+      data: {
+        jumlah: Number(jumlah),
+        idUser: session.user.id,
+        idStock: bahanBaku.id,
+        proses: "Create",
+      },
+    });
+
+    return getResponse(bahanBaku, "Bahan insert successfully", 201);
+  } catch (error) {
+    console.error("Bahan insert failed", error);
+
+    return getResponse(error, "Bahan insert failed", 400);
+  }
 }
-
-

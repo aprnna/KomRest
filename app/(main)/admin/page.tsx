@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 import fetchApi from "@/utils/fetchApi";
 import TablePemasukan from "./TablePemasukan";
 import { formatCurrency } from "@/utils/formatCurrency";
-import { RangeCalendar } from "@nextui-org/react";
+import { RangeCalendar } from "@heroui/react";
 import { today, getLocalTimeZone } from "@internationalized/date";
 import type { DateValue } from "@react-types/calendar";
 import type { RangeValue } from "@react-types/shared";

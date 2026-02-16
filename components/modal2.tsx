@@ -7,7 +7,7 @@ import {
   ModalBody,
   ModalFooter,
   Divider,
-} from "@nextui-org/react";
+} from "@heroui/react";
 import { Button } from "./Button";
 
 interface ModalProps {
